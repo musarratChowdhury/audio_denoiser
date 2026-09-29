@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Audio Denoiser (Demucs)</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<main class="card">
+  <h1>Audio Denoiser</h1>
+  <p class="sub">Facebook Demucs speech enhancement (<code>{{ model_name }}</code>) · upload → denoise → download.
+     Max {{ max_mb }} MB / {{ max_sec }}s. Files are ephemeral (see README).</p>
+
+  <form id="f">
+    <label class="drop" id="drop">
+      <input id="file" type="file" accept=".wav,.mp3,.flac,.ogg,.oga,.aif,.aiff,audio/*" required />
+      <span id="fname">Drop an audio file here or click to browse</span>
+    </label>
+    <div class="row">
+      <label>Dry/wet mix (0 = fully denoised)
+        <input id="dry" type="range" min="0" max="1" step="0.05" value="0" />
+        <span id="dryv">0.00</span>
+      </label>
+      <button type="submit" id="go">Denoise</button>
+    </div>
+  </form>
+
+  <div id="status" role="status"></div>
+  <div id="players" hidden>
+    <h3>Original</h3><audio id="a_orig" controls></audio>
+    <h3>Denoised</h3><audio id="a_out" controls></audio>
+    <p><a id="dl" href="#" download>⬇ Download denoised WAV</a></p>
+  </div>
+</main>
+<script>
+const f = document.getElementById('f'), file = document.getElementById('file');
+const fname = document.getElementById('fname'), status = document.getElementById('status');
+const dry = document.getElementById('dry'), dryv = document.getElementById('dryv');
+const players = document.getElementById('players'), a_orig = document.getElementById('a_orig');
+const a_out = document.getElementById('a_out'), dl = document.getElementById('dl'), go = document.getElementById('go');
+dry.oninput = () => dryv.textContent = Number(dry.value).toFixed(2);
+file.onchange = () => fname.textContent = file.files[0]?.name || 'Drop an audio file here or click to browse';
+f.onsubmit = async (e) => {
+  e.preventDefault();
+  if (!file.files[0]) return;
+  go.disabled = true; players.hidden = true;
+  status.textContent = 'Uploading + denoising (CPU, ~1x realtime)…';
+  a_orig.src = URL.createObjectURL(file.files[0]);
+  const fd = new FormData(); fd.append('file', file.files[0]); fd.append('dry', dry.value);
+  try {
+    const r = await fetch('/api/enhance', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    a_out.src = url; dl.href = url;
+    dl.download = (file.files[0].name.replace(/\.[^.]+$/, '') || 'audio') + '_denoised.wav';
+    const jid = r.headers.get('X-Job-Id');
+    if (jid) dl.href = `/api/download/${jid}`; // persistent-ish link within TTL
+    players.hidden = false; status.textContent = 'Done ✓';
+  } catch (err) { status.textContent = 'Failed: ' + err.message; }
+  finally { go.disabled = false; }
+};
+</script>
+</body>
+</html>

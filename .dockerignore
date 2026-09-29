@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+/tmp/denoiser_jobs/
+*.wav
+*.mp3
+.git/
+.github/

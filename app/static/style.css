@@ -1,0 +1,12 @@
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; display: flex; justify-content: center; }
+.card { width: min(640px, 100%); border: 1px solid #8884; border-radius: 12px; padding: 1.5rem; }
+.sub { color: #888; }
+.drop { display: block; border: 2px dashed #8888; border-radius: 10px; padding: 2rem; text-align: center; cursor: pointer; }
+.drop input { display: none; }
+.row { display: flex; gap: 1rem; align-items: end; justify-content: space-between; margin-top: 1rem; flex-wrap: wrap; }
+button { padding: .6rem 1.4rem; font-size: 1rem; cursor: pointer; }
+button:disabled { opacity: .5; cursor: wait; }
+#status { margin-top: 1rem; min-height: 1.5em; }
+audio { width: 100%; }
