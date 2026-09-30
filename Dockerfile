@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim
 
-# Zero system packages: soundfile wheels bundle libsndfile>=1.1 (native MP3),
-# torch CPU wheel is self-contained, and the HEALTHCHECK below is pure python.
+# Lightweight ffmpeg: imageio-ffmpeg (requirements.txt) ships a single static
+# ffmpeg binary (~25 MB, includes all audio decoders + libmp3lame) — zero apt
+# packages needed, image stays slim. Decode = any format, encode = always MP3.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \

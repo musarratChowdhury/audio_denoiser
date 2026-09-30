@@ -14,7 +14,7 @@
 
   <form id="f">
     <label class="drop" id="drop">
-      <input id="file" type="file" accept=".wav,.mp3,.flac,.ogg,.oga,.aif,.aiff,audio/*" required />
+      <input id="file" type="file" accept=".wav,.mp3,.flac,.ogg,.oga,.opus,.m4a,.mp4,.aac,.wma,.webm,.mkv,.mka,.mov,.3gp,.amr,.aif,.aiff,audio/*,video/*" required />
       <span id="fname">Drop an audio file here or click to browse</span>
     </label>
     <div class="row">
@@ -30,7 +30,7 @@
   <div id="players" hidden>
     <h3>Original</h3><audio id="a_orig" controls></audio>
     <h3>Denoised</h3><audio id="a_out" controls></audio>
-    <p><a id="dl" href="#" download>⬇ Download denoised WAV</a></p>
+    <p><a id="dl" href="#" download>⬇ Download denoised MP3</a></p>
   </div>
 </main>
 <script>
@@ -54,7 +54,7 @@ f.onsubmit = async (e) => {
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     a_out.src = url; dl.href = url;
-    dl.download = (file.files[0].name.replace(/\.[^.]+$/, '') || 'audio') + '_denoised.wav';
+    dl.download = (file.files[0].name.replace(/\.[^.]+$/, '') || 'audio') + '_denoised.mp3';
     const jid = r.headers.get('X-Job-Id');
     if (jid) dl.href = `/api/download/${jid}`; // persistent-ish link within TTL
     players.hidden = false; status.textContent = 'Done ✓';

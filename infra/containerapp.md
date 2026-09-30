@@ -31,8 +31,9 @@ az containerapp create -n denoiser -g rg-denoiser --environment cae-denoiser \
 ```
 
 Scale-to-zero (`--min-replicas 0`) saves money but cold start ≈ 20–60s
-(model load + image pull; slimmed image: CPU torch, no torchaudio/ffmpeg,
-dns48 weights). For demo-friendly latency use `--min-replicas 1`.
+(model load + image pull; slimmed image: CPU torch, no torchaudio,
+lightweight static ffmpeg via imageio-ffmpeg, dns48 weights). For
+demo-friendly latency use `--min-replicas 1`.
 
 CI auto-updates the image on every `main` push once these repo secrets exist:
 `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`

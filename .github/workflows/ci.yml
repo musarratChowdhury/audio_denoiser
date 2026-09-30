@@ -51,7 +51,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=
+            type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
       - uses: docker/build-push-action@v6
         with:
@@ -68,13 +68,23 @@ jobs:
     needs: docker
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # required: azure/login OIDC cannot mint a token without this
     # Skips gracefully until you wire Azure secrets (see infra/containerapp.md).
     environment: production
     steps:
       - name: Check Azure secrets present
         id: gate
         run: |
-          if [ -z "${{ secrets.AZURE_CLIENT_ID }}" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+          missing=""
+          for s in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID ACA_APP_NAME ACA_RESOURCE_GROUP; do :; done
+          [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] || missing="$missing AZURE_CLIENT_ID"
+          [ -n "${{ secrets.AZURE_TENANT_ID }}" ] || missing="$missing AZURE_TENANT_ID"
+          [ -n "${{ secrets.AZURE_SUBSCRIPTION_ID }}" ] || missing="$missing AZURE_SUBSCRIPTION_ID"
+          [ -n "${{ secrets.ACA_APP_NAME }}" ] || missing="$missing ACA_APP_NAME"
+          [ -n "${{ secrets.ACA_RESOURCE_GROUP }}" ] || missing="$missing ACA_RESOURCE_GROUP"
+          if [ -z "$missing" ]; then echo "skip=false" >> "$GITHUB_OUTPUT"; else echo "skip=true" >> "$GITHUB_OUTPUT"; echo "missing:$missing"; fi
       - uses: azure/login@v2
         if: steps.gate.outputs.skip == 'false'
         with:

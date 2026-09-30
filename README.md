@@ -33,12 +33,17 @@ Build with the faster/lighter model: `docker build --build-arg DENOISER_MODEL=dn
 |---|---|---|
 | `GET` | `/` | upload UI |
 | `GET` | `/health` | liveness |
-| `POST` | `/api/enhance` | multipart `file` + optional `dry` (0–1) → denoised WAV (+ `X-Job-Id`) |
+| `POST` | `/api/enhance` | multipart `file` + optional `dry` (0–1) → denoised MP3 (+ `X-Job-Id`) |
 | `GET` | `/api/download/{job_id}` | re-download within TTL |
 
 ```bash
-curl -F file=@noisy.mp3 -F dry=0 http://localhost:8000/api/enhance -o clean.wav
+curl -F file=@noisy.m4a -F dry=0 http://localhost:8000/api/enhance -o clean.mp3
 ```
+
+Input: **any audio format** (wav/mp3/flac/ogg/opus/m4a/aac/wma/webm/amr/3gp/
+mkv/mov/… — decoded by a lightweight static ffmpeg via `imageio-ffmpeg`,
+~25 MB, no apt packages; video containers have their audio track extracted).
+Output: **always MP3** (`DENOISER_MP3_BITRATE`, default `192k`).
 
 Models: `dns48` (default — fastest, smallest, RTF ~0.6–0.8 on laptop CPU),
 `dns64` (balanced), `master64` (best quality, slowest). Set via `DENOISER_MODEL_NAME`.
@@ -61,4 +66,5 @@ streaming inference; shorter clips use a full-utterance forward.
 | `DENOISER_MAX_AUDIO_SECONDS` | `300` | bounds CPU time per request |
 | `DENOISER_JOB_DIR` | `/tmp/denoiser_jobs` | point at Azure Files mount for shared disk |
 | `DENOISER_JOB_TTL_SECONDS` | `3600` | re-download window |
+| `DENOISER_MP3_BITRATE` | `192k` | MP3 output bitrate (`128k`/`192k`/`320k`, or VBR `v0`–`v9`) |
 | `DENOISER_CORS_ORIGINS` | `` | e.g. your frontend domain |

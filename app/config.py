@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     max_audio_seconds: int = 300  # 5 min cap to bound CPU time per request
     job_dir: str = "/tmp/denoiser_jobs"
     job_ttl_seconds: int = 3600  # re-download window before cleanup
+    # Final delivery format is always MP3 (libmp3lame). "192k" CBR default;
+    # use "v0".."v9" for VBR quality selectors instead.
+    mp3_bitrate: str = "192k"
     # Comma-separated extra origins for CORS (ACA FQDN goes here in prod)
     cors_origins: str = ""
 

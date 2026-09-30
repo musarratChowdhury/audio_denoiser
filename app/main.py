@@ -23,21 +23,23 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 
+from .audio_io import ALLOWED_EXTS
 from .config import get_settings
 from .denoiser_service import (
     enhance_wav,
     get_model,
     load_audio_mono,
     model_sample_rate,
-    write_wav,
+    write_mp3,
 )
 
 log = logging.getLogger("uvicorn.error")
 settings = get_settings()
 
-# No ffmpeg in the image: libsndfile (bundled with soundfile) handles these.
-# m4a/mp4/webm need AAC/Vorbis-in-container decoders, so they stay rejected.
-ALLOWED_EXTS = {".wav", ".mp3", ".flac", ".ogg", ".oga", ".aif", ".aiff"}
+
+def _job_paths(job_id: str) -> tuple[Path, Path]:
+    job = Path(settings.job_dir) / job_id
+    return job / "input", job / "output.mp3"
 
 
 @asynccontextmanager
@@ -66,11 +68,6 @@ if settings.cors_origins:
 BASE = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
-
-
-def _job_paths(job_id: str) -> tuple[Path, Path]:
-    job = Path(settings.job_dir) / job_id
-    return job / "input", job / "output.wav"
 
 
 def _sweep_old_jobs() -> None:
@@ -117,7 +114,7 @@ async def enhance(
     job_dir = Path(settings.job_dir) / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     in_path = job_dir / f"input{ext}"
-    out_path = job_dir / "output.wav"
+    out_path = job_dir / "output.mp3"
 
     size = 0
     with open(in_path, "wb") as f:
@@ -140,7 +137,7 @@ async def enhance(
         t0 = time.perf_counter()
         enhanced, mode = enhance_wav(wav, model, settings.device, float(dry),
                                      sr=sr, stream_threshold_s=settings.stream_seconds)
-        write_wav(out_path, enhanced, sr)
+        write_mp3(out_path, enhanced, sr, bitrate=settings.mp3_bitrate)
         took = time.perf_counter() - t0
         log.info("job=%s dur=%.1fs took=%.1fs rtf=%.2f mode=%s", job_id, dur, took, took / max(dur, 1e-3), mode)
     except HTTPException:
@@ -155,8 +152,8 @@ async def enhance(
     background.add_task(lambda: Path(job_dir).touch(exist_ok=True))
     return FileResponse(
         out_path,
-        media_type="audio/wav",
-        filename=f"{Path(file.filename or 'audio').stem}_denoised.wav",
+        media_type="audio/mpeg",
+        filename=f"{Path(file.filename or 'audio').stem}_denoised.mp3",
         headers={"X-Job-Id": job_id},
     )
 
@@ -166,5 +163,5 @@ def download(job_id: str):
     _, out_path = _job_paths(job_id)
     if not out_path.exists():
         raise HTTPException(404, "job expired or unknown (ephemeral disk, TTL exceeded?)")
-    return FileResponse(out_path, media_type="audio/wav",
-                        filename=f"{job_id}_denoised.wav")
+    return FileResponse(out_path, media_type="audio/mpeg",
+                        filename=f"{job_id}_denoised.mp3")

@@ -1,9 +1,13 @@
 """Model singleton + pure inference helpers.
 
 Wraps facebookresearch/denoiser pretrained models (dns48 / dns64 / master64).
-Models are mono 16 kHz Demucs variants; we resample/mixdown on the way in and
-write 16-bit WAV on the way out so the API accepts wav/mp3/flac/ogg/aiff
-(decoded by libsndfile bundled with soundfile — no ffmpeg needed).
+Models are mono 16 kHz Demucs variants; we resample/mixdown on the way in.
+
+Audio I/O (see app/audio_io.py):
+  * Decode: libsndfile fast path for wav/flac/ogg/mp3/aiff, otherwise the
+    lightweight static ffmpeg binary (imageio-ffmpeg) decodes anything else
+    (m4a/aac/opus/webm/wma/amr/3gp/mkv/mov/...) to mono PCM.
+  * Encode: final output is ALWAYS MP3 (libmp3lame) — the API never returns WAV.
 """
 from __future__ import annotations
 
@@ -57,19 +61,34 @@ def model_sample_rate() -> int:
 
 
 def load_audio_mono(path: str | Path, target_sr: int):
-    """Read any soundfile-decodable audio -> mono Tensor [1, T] at target_sr."""
+    """Read any ffmpeg/soundfile-decodable audio -> mono Tensor [1, T] at target_sr.
+
+    Fast path: libsndfile (soundfile) for wav/flac/ogg/mp3/aiff.
+    Fallback: static ffmpeg for everything else (m4a/aac/opus/webm/wma/...).
+    """
     import numpy as np
-    import soundfile as sf
     import torch
     import julius
 
-    wav, sr = sf.read(str(path), always_2d=True)  # (T, C)
-    wav = wav.T  # (C, T)
-    if wav.shape[0] > 1:
-        wav = wav.mean(axis=0, keepdims=True)
-    tensor = torch.from_numpy(wav.astype(np.float32))
-    if sr != target_sr:
-        tensor = julius.resample_frac(tensor, sr, target_sr)
+    from .audio_io import SOUNDFILE_NATIVE_EXTS, decode_to_mono_float32
+
+    ext = Path(path).suffix.lower()
+    tensor = None
+    if ext in SOUNDFILE_NATIVE_EXTS:
+        try:
+            import soundfile as sf
+
+            wav, sr = sf.read(str(path), always_2d=True)  # (T, C)
+            wav = wav.T  # (C, T)
+            if wav.shape[0] > 1:
+                wav = wav.mean(axis=0, keepdims=True)
+            tensor = torch.from_numpy(wav.astype(np.float32))
+            if sr != target_sr:
+                tensor = julius.resample_frac(tensor, sr, target_sr)
+        except Exception:
+            tensor = None  # fall through to ffmpeg
+    if tensor is None:
+        tensor = decode_to_mono_float32(path, target_sr)
     # guard against empty / extremely long inputs upstream; hard-clip here too
     if tensor.numel() == 0:
         raise ValueError("empty audio file")
@@ -139,3 +158,10 @@ def write_wav(path, wav, sr: int) -> None:
 
     arr = wav.squeeze(0).numpy() if hasattr(wav, "squeeze") else np.asarray(wav)
     sf.write(str(path), arr, sr, subtype="PCM_16")
+
+
+def write_mp3(path, wav, sr: int, bitrate: str = "192k") -> None:
+    """Write enhanced audio as MP3 (final delivery format, always)."""
+    from .audio_io import encode_mp3
+
+    encode_mp3(wav, sr, path, bitrate=bitrate)
