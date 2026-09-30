@@ -94,10 +94,14 @@ jobs:
       - name: Update Container App to new image
         if: steps.gate.outputs.skip == 'false'
         run: |
+          # github.repository preserves owner casing (musarratChowdhury) but
+          # registries require lowercase repo paths — ACA's pull fails (exit
+          # 125) on uppercase. metadata-action already lowercases when pushing.
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           az containerapp update \
             --name "${{ secrets.ACA_APP_NAME }}" \
             --resource-group "${{ secrets.ACA_RESOURCE_GROUP }}" \
-            --image "ghcr.io/${{ github.repository }}:sha-${{ github.sha }}" \
+            --image "ghcr.io/${REPO_LC}:sha-${{ github.sha }}" \
             --output none
       - name: Skipped (no Azure secrets)
         if: steps.gate.outputs.skip == 'true'

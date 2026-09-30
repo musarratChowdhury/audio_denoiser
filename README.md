@@ -55,6 +55,16 @@ streaming inference; shorter clips use a full-utterance forward.
 * `.github/workflows/ci.yml`: pytest → buildx → push `ghcr.io/<owner>/audio_denoiser:sha-…` + `:latest` → `az containerapp update` (needs `AZURE_*`/`ACA_*` secrets).
 * Full ACA steps + **file-upload strategy (ephemeral vs Blob vs Files)** → [`infra/containerapp.md`](infra/containerapp.md).
 
+> ⚠️ **Gotcha — GHCR image refs must be lowercase.** If your GitHub owner has
+> uppercase letters (e.g. `musarratChowdhury`), `az containerapp update --image
+> ghcr.io/<Owner>/…` fails with `BuildFailed: buildah pull failed with exit
+> code 125` even though the tag exists and is public. `docker/metadata-action`
+> lowercases on push, so lowercase the deploy ref too
+> (`REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')` —
+> see `ci.yml`). Debug trick: create a throwaway app with the suspect image;
+> if it provisions `Succeeded`, the image is fine and the problem is the
+> update path/ref.
+
 ## Config (env)
 
 | Var | Default | Notes |
